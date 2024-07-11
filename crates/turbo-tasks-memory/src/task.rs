@@ -558,14 +558,14 @@ impl Task {
                 PersistentTaskType::Native {
                     fn_type: native_fn,
                     this: _,
-                    args: _,
+                    arg: _,
                 } => {
                     format!("[{}] {}", id, registry::get_function(*native_fn).name)
                 }
                 PersistentTaskType::ResolveNative {
                     fn_type: native_fn,
                     this: _,
-                    args: _,
+                    arg: _,
                 } => {
                     format!(
                         "[{}] [resolve] {}",
@@ -577,7 +577,7 @@ impl Task {
                     trait_type,
                     method_name: fn_name,
                     this: _,
-                    args: _,
+                    arg: _,
                 } => {
                     format!(
                         "[{}] [resolve trait] {} in trait {}",
@@ -726,7 +726,7 @@ impl Task {
                 PersistentTaskType::Native {
                     fn_type: native_fn,
                     this,
-                    args: inputs,
+                    arg: inputs,
                 } => {
                     let func = registry::get_function(*native_fn);
                     let span = func.span();
@@ -739,7 +739,7 @@ impl Task {
                 PersistentTaskType::ResolveNative {
                     fn_type: ref native_fn_id,
                     this,
-                    args: inputs,
+                    arg: inputs,
                 } => {
                     let native_fn_id = *native_fn_id;
                     let func = registry::get_function(native_fn_id);
@@ -760,7 +760,7 @@ impl Task {
                     trait_type: trait_type_id,
                     method_name: name,
                     this,
-                    args: inputs,
+                    arg: inputs,
                 } => {
                     let trait_type_id = *trait_type_id;
                     let trait_type = registry::get_trait(trait_type_id);
