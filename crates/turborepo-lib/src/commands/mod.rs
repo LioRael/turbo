@@ -77,6 +77,7 @@ impl CommandBase {
                     None
                 }
             }))
+            .with_daemon(self.args.run_args.as_ref().and_then(|args| args.daemon()))
             .build()
     }
 

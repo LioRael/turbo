@@ -125,6 +125,8 @@ pub struct RawTurboJson {
     pub(crate) remote_cache: Option<RawRemoteCacheOptions>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "ui")]
     pub ui: Option<UI>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub daemon: Option<Spanned<bool>>,
 
     #[deserializable(rename = "//")]
     #[serde(skip)]
@@ -1073,6 +1075,14 @@ mod tests {
     fn test_ui(json: &str, expected: Option<UI>) {
         let json = RawTurboJson::parse(json, AnchoredSystemPath::new("").unwrap()).unwrap();
         assert_eq!(json.ui, expected);
+    }
+
+    #[test_case(r#"{ "daemon": true }"#, Some(true) ; "daemon_on")]
+    #[test_case(r#"{ "daemon": false }"#, Some(false) ; "daemon_off")]
+    #[test_case(r#"{}"#, None ; "missing")]
+    fn test_daemon(json: &str, expected: Option<bool>) {
+        let json = RawTurboJson::parse(json, AnchoredSystemPath::new("").unwrap()).unwrap();
+        assert_eq!(json.daemon.map(|d| d.into_inner()), expected);
     }
 
     #[test_case(r#"{ "ui": "tui" }"#, r#"{"ui":"tui"}"# ; "tui")]

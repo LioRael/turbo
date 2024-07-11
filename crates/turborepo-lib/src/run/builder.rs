@@ -55,6 +55,7 @@ pub struct RunBuilder {
     api_auth: Option<APIAuth>,
     repo_root: AbsoluteSystemPathBuf,
     ui: UI,
+    daemon: Option<bool>,
     version: &'static str,
     experimental_ui: bool,
     api_client: APIClient,
@@ -95,6 +96,7 @@ impl RunBuilder {
         }
         let version = base.version();
         let experimental_ui = config.ui();
+        let daemon = config.daemon();
         let processes = ProcessManager::new(
             // We currently only use a pty if the following are met:
             // - we're attached to a tty
@@ -111,6 +113,7 @@ impl RunBuilder {
             api_auth,
             repo_root,
             ui,
+            daemon,
             version,
             experimental_ui,
             analytics_sender: None,
@@ -207,7 +210,7 @@ impl RunBuilder {
 
         // Remove allow when daemon is flagged back on
         #[allow(unused_mut)]
-        let mut daemon = match (is_ci_or_not_tty, self.opts.run_opts.daemon) {
+        let mut daemon = match (is_ci_or_not_tty, self.daemon) {
             (true, None) => {
                 run_telemetry.track_daemon_init(DaemonInitStatus::Skipped);
                 debug!("skipping turbod since we appear to be in a non-interactive context");
@@ -218,7 +221,7 @@ impl RunBuilder {
                 let can_kill_server = true;
                 let connector =
                     DaemonConnector::new(can_start_server, can_kill_server, &self.repo_root);
-                match (connector.connect().await, self.opts.run_opts.daemon) {
+                match (connector.connect().await, self.daemon) {
                     (Ok(client), _) => {
                         run_telemetry.track_daemon_init(DaemonInitStatus::Started);
                         debug!("running in daemon mode");
@@ -250,7 +253,7 @@ impl RunBuilder {
 
             #[cfg(feature = "daemon-package-discovery")]
             let graph = {
-                match (&daemon, self.opts.run_opts.daemon) {
+                match (&daemon, self.daemon) {
                     (None, Some(true)) => {
                         // We've asked for the daemon, but it's not available. This is an error
                         return Err(turborepo_repository::package_graph::Error::Discovery(

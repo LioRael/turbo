@@ -208,6 +208,7 @@ pub struct ConfigurationOptions {
     pub(crate) spaces_id: Option<String>,
     #[serde(rename = "ui")]
     pub(crate) ui: Option<bool>,
+    pub(crate) daemon: Option<bool>,
 }
 
 #[derive(Default)]
@@ -274,6 +275,10 @@ impl ConfigurationOptions {
     pub fn ui(&self) -> bool {
         self.ui.unwrap_or(false) && atty::is(atty::Stream::Stdout)
     }
+
+    pub fn daemon(&self) -> Option<bool> {
+        self.daemon
+    }
 }
 
 // Maps Some("") to None to emulate how Go handles empty strings
@@ -299,6 +304,7 @@ impl ResolvedConfigurationOptions for RawTurboJson {
             .and_then(|spaces| spaces.id)
             .map(|spaces_id| spaces_id.into());
         opts.ui = self.ui.map(|ui| ui.use_tui());
+        opts.daemon = self.daemon.map(|daemon| *daemon.as_inner());
         Ok(opts)
     }
 }
@@ -331,6 +337,7 @@ fn get_env_var_config(
         "upload_timeout",
     );
     turbo_mapping.insert(OsString::from("turbo_ui"), "ui");
+    turbo_mapping.insert(OsString::from("turbo_daemon"), "daemon");
     turbo_mapping.insert(OsString::from("turbo_preflight"), "preflight");
 
     // We do not enable new config sources:
@@ -418,6 +425,13 @@ fn get_env_var_config(
         _ => None,
     });
 
+    // Process daemon
+    let daemon = output_map.get("daemon").and_then(|val| match val.as_str() {
+        "1" | "true" => Some(true),
+        "0" | "false" => Some(false),
+        _ => None,
+    });
+
     // We currently don't pick up a Spaces ID via env var, we likely won't
     // continue using the Spaces name, we can add an env var when we have the
     // name we want to stick with.
@@ -435,6 +449,7 @@ fn get_env_var_config(
         preflight,
         enabled,
         ui,
+        daemon,
 
         // Processed numbers
         timeout,
@@ -484,6 +499,8 @@ fn get_override_env_var_config(
             }
         });
 
+    let daemon = None;
+
     let output = ConfigurationOptions {
         api_url: None,
         login_url: None,
@@ -495,6 +512,7 @@ fn get_override_env_var_config(
         preflight: None,
         enabled: None,
         ui,
+        daemon,
         timeout: None,
         upload_timeout: None,
         spaces_id: None,
@@ -633,6 +651,7 @@ impl TurborepoConfigBuilder {
     create_builder!(with_preflight, preflight, Option<bool>);
     create_builder!(with_timeout, timeout, Option<u64>);
     create_builder!(with_ui, ui, Option<bool>);
+    create_builder!(with_daemon, daemon, Option<bool>);
 
     pub fn build(&self) -> Result<ConfigurationOptions, Error> {
         // Priority, from least significant to most significant:
@@ -710,6 +729,9 @@ impl TurborepoConfigBuilder {
                     if let Some(ui) = current_source_config.ui {
                         acc.ui = Some(ui);
                     }
+                    if let Some(daemon) = current_source_config.daemon {
+                        acc.daemon = Some(daemon);
+                    }
 
                     acc
                 })
@@ -766,6 +788,7 @@ mod test {
             turbo_remote_cache_timeout.to_string().into(),
         );
         env.insert("turbo_ui".into(), "true".into());
+        env.insert("turbo_daemon".into(), "true".into());
         env.insert("turbo_preflight".into(), "true".into());
 
         let config = get_env_var_config(&env).unwrap();
@@ -777,6 +800,7 @@ mod test {
         assert_eq!(turbo_token, config.token.unwrap());
         assert_eq!(turbo_remote_cache_timeout, config.timeout.unwrap());
         assert_eq!(Some(true), config.ui);
+        assert_eq!(Some(true), config.daemon);
     }
 
     #[test]
@@ -788,6 +812,7 @@ mod test {
         env.insert("turbo_teamid".into(), "".into());
         env.insert("turbo_token".into(), "".into());
         env.insert("turbo_ui".into(), "".into());
+        env.insert("turbo_daemon".into(), "".into());
         env.insert("turbo_preflight".into(), "".into());
 
         let config = get_env_var_config(&env).unwrap();
@@ -797,6 +822,7 @@ mod test {
         assert_eq!(config.team_id(), None);
         assert_eq!(config.token(), None);
         assert_eq!(config.ui, None);
+        assert_eq!(config.daemon, None);
         assert!(!config.preflight());
     }
 
