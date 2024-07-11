@@ -499,8 +499,6 @@ fn get_override_env_var_config(
             }
         });
 
-    let daemon = None;
-
     let output = ConfigurationOptions {
         api_url: None,
         login_url: None,
@@ -512,7 +510,7 @@ fn get_override_env_var_config(
         preflight: None,
         enabled: None,
         ui,
-        daemon,
+        daemon: None,
         timeout: None,
         upload_timeout: None,
         spaces_id: None,
