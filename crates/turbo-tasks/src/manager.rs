@@ -29,26 +29,28 @@ use crate::{
     event::{Event, EventListener},
     id::{BackendJobId, FunctionId, TraitTypeId},
     id_factory::IdFactory,
+    magic_any::MagicAny,
     raw_vc::{CellId, RawVc},
+    registry,
     trace::TraceRawVcs,
     trait_helpers::get_trait_method,
     util::StaticOrArc,
     vc::ReadVcFuture,
-    Completion, ConcreteTaskInput, InvalidationReason, InvalidationReasonSet, SharedReference,
-    TaskId, TaskIdSet, ValueTypeId, Vc, VcRead, VcValueTrait, VcValueType,
+    Completion, InvalidationReason, InvalidationReasonSet, SharedReference, TaskId, TaskIdSet,
+    ValueTypeId, Vc, VcRead, VcValueTrait, VcValueType,
 };
 
 pub trait TurboTasksCallApi: Sync + Send {
-    fn dynamic_call(&self, func: FunctionId, arg: ConcreteTaskInput) -> RawVc;
-    fn dynamic_this_call(&self, func: FunctionId, this: RawVc, arg: ConcreteTaskInput) -> RawVc;
-    fn native_call(&self, func: FunctionId, arg: ConcreteTaskInput) -> RawVc;
-    fn this_call(&self, func: FunctionId, this: RawVc, arg: ConcreteTaskInput) -> RawVc;
+    fn dynamic_call(&self, func: FunctionId, arg: Box<dyn MagicAny>) -> RawVc;
+    fn dynamic_this_call(&self, func: FunctionId, this: RawVc, arg: Box<dyn MagicAny>) -> RawVc;
+    fn native_call(&self, func: FunctionId, arg: Box<dyn MagicAny>) -> RawVc;
+    fn this_call(&self, func: FunctionId, this: RawVc, arg: Box<dyn MagicAny>) -> RawVc;
     fn trait_call(
         &self,
         trait_type: TraitTypeId,
         trait_fn_name: Cow<'static, str>,
         this: RawVc,
-        arg: ConcreteTaskInput,
+        arg: Box<dyn MagicAny>,
     ) -> RawVc;
 
     fn run_once(
@@ -370,7 +372,7 @@ impl<B: Backend + 'static> TurboTasks<B> {
 
     /// Call a native function with arguments.
     /// All inputs must be resolved.
-    pub(crate) fn native_call(&self, func: FunctionId, arg: ConcreteTaskInput) -> RawVc {
+    pub(crate) fn native_call(&self, func: FunctionId, arg: Box<dyn MagicAny>) -> RawVc {
         RawVc::TaskOutput(self.backend.get_or_create_persistent_task(
             PersistentTaskType::Native {
                 fn_type: func,
@@ -384,7 +386,7 @@ impl<B: Backend + 'static> TurboTasks<B> {
 
     /// Call a native function with arguments.
     /// All inputs must be resolved.
-    pub(crate) fn this_call(&self, func: FunctionId, this: RawVc, arg: ConcreteTaskInput) -> RawVc {
+    pub(crate) fn this_call(&self, func: FunctionId, this: RawVc, arg: Box<dyn MagicAny>) -> RawVc {
         RawVc::TaskOutput(self.backend.get_or_create_persistent_task(
             PersistentTaskType::Native {
                 fn_type: func,
@@ -398,8 +400,8 @@ impl<B: Backend + 'static> TurboTasks<B> {
 
     /// Calls a native function with arguments. Resolves arguments when needed
     /// with a wrapper task.
-    pub fn dynamic_call(&self, func: FunctionId, arg: ConcreteTaskInput) -> RawVc {
-        if arg.is_resolved() {
+    pub fn dynamic_call(&self, func: FunctionId, arg: Box<dyn MagicAny>) -> RawVc {
+        if registry::get_function(func).arg_meta.is_resolved(&*arg) {
             self.native_call(func, arg)
         } else {
             RawVc::TaskOutput(self.backend.get_or_create_persistent_task(
@@ -420,9 +422,9 @@ impl<B: Backend + 'static> TurboTasks<B> {
         &self,
         func: FunctionId,
         this: RawVc,
-        arg: ConcreteTaskInput,
+        arg: Box<dyn MagicAny>,
     ) -> RawVc {
-        if this.is_resolved() && arg.is_resolved() {
+        if this.is_resolved() && registry::get_function(func).arg_meta.is_resolved(&*arg) {
             self.this_call(func, this, arg)
         } else {
             RawVc::TaskOutput(self.backend.get_or_create_persistent_task(
@@ -444,7 +446,7 @@ impl<B: Backend + 'static> TurboTasks<B> {
         trait_type: TraitTypeId,
         mut trait_fn_name: Cow<'static, str>,
         this: RawVc,
-        arg: ConcreteTaskInput,
+        arg: Box<dyn MagicAny>,
     ) -> RawVc {
         // avoid creating a wrapper task if self is already resolved
         // for resolved cells we already know the value type so we can lookup the
@@ -846,16 +848,16 @@ impl<B: Backend + 'static> TurboTasks<B> {
 }
 
 impl<B: Backend + 'static> TurboTasksCallApi for TurboTasks<B> {
-    fn dynamic_call(&self, func: FunctionId, arg: ConcreteTaskInput) -> RawVc {
+    fn dynamic_call(&self, func: FunctionId, arg: Box<dyn MagicAny>) -> RawVc {
         self.dynamic_call(func, arg)
     }
-    fn dynamic_this_call(&self, func: FunctionId, this: RawVc, arg: ConcreteTaskInput) -> RawVc {
+    fn dynamic_this_call(&self, func: FunctionId, this: RawVc, arg: Box<dyn MagicAny>) -> RawVc {
         self.dynamic_this_call(func, this, arg)
     }
-    fn native_call(&self, func: FunctionId, arg: ConcreteTaskInput) -> RawVc {
+    fn native_call(&self, func: FunctionId, arg: Box<dyn MagicAny>) -> RawVc {
         self.native_call(func, arg)
     }
-    fn this_call(&self, func: FunctionId, this: RawVc, arg: ConcreteTaskInput) -> RawVc {
+    fn this_call(&self, func: FunctionId, this: RawVc, arg: Box<dyn MagicAny>) -> RawVc {
         self.this_call(func, this, arg)
     }
     fn trait_call(
@@ -863,7 +865,7 @@ impl<B: Backend + 'static> TurboTasksCallApi for TurboTasks<B> {
         trait_type: TraitTypeId,
         trait_fn_name: Cow<'static, str>,
         this: RawVc,
-        arg: ConcreteTaskInput,
+        arg: Box<dyn MagicAny>,
     ) -> RawVc {
         self.trait_call(trait_type, trait_fn_name, this, arg)
     }
@@ -1340,13 +1342,13 @@ pub async fn run_once_with_reason<T: Send + 'static>(
 }
 
 /// Calls [`TurboTasks::dynamic_call`] for the current turbo tasks instance.
-pub fn dynamic_call(func: FunctionId, arg: ConcreteTaskInput) -> RawVc {
+pub fn dynamic_call(func: FunctionId, arg: Box<dyn MagicAny>) -> RawVc {
     with_turbo_tasks(|tt| tt.dynamic_call(func, arg))
 }
 
 /// Calls [`TurboTasks::dynamic_this_call`] for the current turbo tasks
 /// instance.
-pub fn dynamic_this_call(func: FunctionId, this: RawVc, arg: ConcreteTaskInput) -> RawVc {
+pub fn dynamic_this_call(func: FunctionId, this: RawVc, arg: Box<dyn MagicAny>) -> RawVc {
     with_turbo_tasks(|tt| tt.dynamic_this_call(func, this, arg))
 }
 
@@ -1355,7 +1357,7 @@ pub fn trait_call(
     trait_type: TraitTypeId,
     trait_fn_name: Cow<'static, str>,
     this: RawVc,
-    arg: ConcreteTaskInput,
+    arg: Box<dyn MagicAny>,
 ) -> RawVc {
     with_turbo_tasks(|tt| tt.trait_call(trait_type, trait_fn_name, this, arg))
 }

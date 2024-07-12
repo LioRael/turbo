@@ -392,7 +392,9 @@ impl ModuleResolveResultOption {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, TraceRawVcs, TaskInput)]
+#[derive(
+    Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, TraceRawVcs, TaskInput,
+)]
 pub enum ExternalType {
     Url,
     CommonJs,

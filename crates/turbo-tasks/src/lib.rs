@@ -33,6 +33,7 @@
 #![feature(arbitrary_self_types)]
 #![feature(type_alias_impl_trait)]
 #![feature(never_type)]
+#![feature(impl_trait_in_assoc_type)]
 
 pub mod backend;
 mod capture_future;
@@ -48,7 +49,6 @@ mod id;
 mod id_factory;
 mod invalidation;
 mod join_iter_ext;
-mod keyed_cell;
 #[doc(hidden)]
 pub mod macro_helpers;
 mod magic_any;
@@ -87,7 +87,7 @@ pub use invalidation::{
     DynamicEqHash, InvalidationReason, InvalidationReasonKind, InvalidationReasonSet,
 };
 pub use join_iter_ext::{JoinIterExt, TryFlatJoinIterExt, TryJoinIterExt};
-pub use keyed_cell::{global_keyed_cell, keyed_cell};
+pub use magic_any::MagicAny;
 pub use manager::{
     dynamic_call, dynamic_this_call, emit, get_invalidator, mark_finished, mark_stateful,
     prevent_gc, run_once, run_once_with_reason, spawn_blocking, spawn_thread, trait_call,
@@ -99,10 +99,7 @@ pub use raw_vc::{CellId, RawVc, ReadRawVcFuture, ResolveTypeError};
 pub use read_ref::ReadRef;
 use rustc_hash::FxHasher;
 pub use state::State;
-pub use task::{
-    concrete_task_input::{ConcreteTaskInput, SharedReference, SharedValue},
-    task_input::TaskInput,
-};
+pub use task::{task_input::TaskInput, SharedReference};
 pub use trait_ref::{IntoTraitRef, TraitRef};
 pub use turbo_tasks_macros::{function, value, value_impl, value_trait, TaskInput};
 pub use value::{TransientInstance, TransientValue, Value};

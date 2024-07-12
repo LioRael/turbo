@@ -386,6 +386,13 @@ where
         })
     }
 
+    /// Returns `true` if the reference is resolved.
+    ///
+    /// See also [`Vc::resolve`].
+    pub fn is_resolved(self) -> bool {
+        self.node.is_resolved()
+    }
+
     /// Resolve the reference until it points to a cell directly in a strongly
     /// consistent way.
     ///
